@@ -1,0 +1,25 @@
+map $ssl_preread_server_name $forgesworn_upstream {
+    turn.${PUBLIC_HOST} spry_turn_tls;
+    ${PUBLIC_HOST} spry_https;
+    default closed;
+}
+
+upstream spry_turn_tls {
+    server 127.0.0.1:5349;
+}
+
+upstream spry_https {
+    server 127.0.0.1:9443;
+}
+
+upstream closed {
+    server 127.0.0.1:1;
+}
+
+server {
+    listen 443;
+    ssl_preread on;
+    proxy_pass $forgesworn_upstream;
+    proxy_connect_timeout 3s;
+    proxy_timeout 300s;
+}

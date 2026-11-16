@@ -1,0 +1,111 @@
+name: forgesworn-node
+
+services:
+  spry:
+    image: ${SPRY_IMAGE:-localhost/spry-standalone:dev}
+    build:
+      context: ${SPRY_SOURCE:-../spry-turn}
+    network_mode: host
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      SPRY_PUBLIC_URL: https://${PUBLIC_HOST}
+      SPRY_OWNER_URL: https://${ADMIN_HOST}:8443
+      SPRY_OWNER_KEYS: ${OWNER_KEYS}
+      SPRY_RELAY_IP: ${PUBLIC_IP}
+      SPRY_KITHMOOT_URL: ${KITHMOOT_URL:-https://kithmoot.app/j/}
+      SPRY_ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://kithmoot.app,https://kithmoot.forgesworn.dev}
+      SPRY_CONTROL_RELAYS: ${CONTROL_RELAYS}
+      SPRY_TLS_443: "true"
+      SPRY_TLS_CERT_FILE: /run/secrets/fullchain
+      SPRY_TLS_KEY_FILE: /run/secrets/privkey
+      SPRY_LOCAL_TEST: ${SPRY_LOCAL_TEST:-false}
+      SPRY_MAX_ALLOCATIONS: ${MAX_ALLOCATIONS:-32}
+      SPRY_MAX_ALLOCATIONS_PER_USER: ${MAX_ALLOCATIONS_PER_USER:-8}
+      SPRY_MAX_TCP_CONNECTIONS: ${MAX_TCP_CONNECTIONS:-64}
+      SPRY_BYTES_PER_SECOND: ${BYTES_PER_SECOND:-1000000}
+      SPRY_AGGREGATE_BYTES_PER_SECOND: ${AGGREGATE_BYTES_PER_SECOND:-8000000}
+    volumes:
+      - spry-state:/data
+    secrets:
+      - spry_turn_secret
+      - fullchain
+      - privkey
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "--max-time", "5", "http://127.0.0.1:3744/v1/status"]
+      interval: 15s
+      timeout: 6s
+      retries: 10
+      start_period: 10s
+
+  gateway:
+    image: nginx:1.29.3-trixie@sha256:2f4e10193b0c4f61472245e9d26cea78e7df7af266c7e7cf5e67353ee2731b51
+    network_mode: host
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+      - /var/cache/nginx:size=32m
+      - /var/run:size=1m
+      - /etc/nginx/conf.d:size=1m
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID, NET_BIND_SERVICE]
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST}
+      ADMIN_HOST: ${ADMIN_HOST}
+      ADMIN_BIND: ${ADMIN_BIND:-127.0.0.1}
+      NGINX_ENVSUBST_FILTER: "^(PUBLIC_HOST|ADMIN_HOST|ADMIN_BIND)$"
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./gateway/stream.conf.template:/etc/nginx/templates/stream.conf.template:ro
+      - ./gateway/http.conf.template:/etc/nginx/templates/http.conf.template:ro
+      - ./gateway/proxy_params:/etc/nginx/proxy_params:ro
+      - certbot-webroot:/var/www/certbot:ro
+      - ./state/tls/fullchain.pem:/etc/nginx/tls/fullchain.pem:ro
+      - ./state/tls/privkey.pem:/etc/nginx/tls/privkey.pem:ro
+    depends_on:
+      spry:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  certbot:
+    image: certbot/certbot:v5.1.0@sha256:bb72eb98a32ecc5dcef8eeeb8fb6a2a8c50d4d93e2a2c3542f8cb679840c990c
+    profiles: [tools]
+    network_mode: host
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./state/letsencrypt:/etc/letsencrypt
+      - ./state/certbot-work:/var/lib/letsencrypt
+      - ./state/certbot-log:/var/log/letsencrypt
+      - certbot-webroot:/var/www/certbot
+      - ./state/tls:/tls
+      - ./certbot/deploy-hook.sh:/etc/letsencrypt/renewal-hooks/deploy/forgesworn-node.sh:ro
+    entrypoint: ["certbot"]
+
+volumes:
+  spry-state:
+  certbot-webroot:
+
+secrets:
+  spry_turn_secret:
+    file: ./state/spry-turn-secret
+  fullchain:
+    file: ./state/tls/fullchain.pem
+  privkey:
+    file: ./state/tls/privkey.pem
