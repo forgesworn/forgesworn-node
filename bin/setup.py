@@ -54,6 +54,28 @@ def bech32_decode(value):
     return output.hex()
 
 
+def bech32_encode(hrp, payload):
+    accumulator, bits, values = 0, 0, []
+    for byte in payload:
+        accumulator = accumulator << 8 | byte
+        bits += 8
+        while bits >= 5:
+            bits -= 5
+            values.append((accumulator >> bits) & 31)
+    if bits:
+        values.append((accumulator << (5 - bits)) & 31)
+    expanded = [ord(character) >> 5 for character in hrp] + [0] + [ord(character) & 31 for character in hrp]
+    polymod = 1
+    for item in expanded + values + [0] * 6:
+        top = polymod >> 25
+        polymod = (polymod & 0x1ffffff) << 5 ^ item
+        for index, generator in enumerate((0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3)):
+            if top >> index & 1:
+                polymod ^= generator
+    checksum = [(polymod ^ 1) >> 5 * (5 - index) & 31 for index in range(6)]
+    return hrp + "1" + "".join(BECH32[value] for value in values + checksum)
+
+
 def owner_keys(value):
     keys = []
     for item in value.split(","):
@@ -180,10 +202,10 @@ def check_dns(host, address):
             raise RuntimeError(f"{name} resolves to {sorted(addresses) or 'no IPv4 address'}, not {address}")
 
 
-def request(host, port, path, ca_file, method="GET", body=None):
+def request(host, port, path, ca_file, method="GET", body=None, headers=None):
     context = ssl.create_default_context(cafile=str(ca_file))
     connection = http.client.HTTPSConnection(host, port, timeout=10, context=context)
-    headers = {"Content-Type": "application/json"} if body is not None else {}
+    headers = {"Content-Type": "application/json"} if body is not None else (headers or {})
     connection.request(method, path, body=body, headers=headers)
     response = connection.getresponse()
     response.read(1024)
@@ -202,13 +224,19 @@ def verify(values):
         raise RuntimeError("unsigned pairing was not refused")
     if request(host, 443, "/v1/pairings", ca_file, "POST", "{}") != 404:
         raise RuntimeError("owner pairing creation is publicly reachable")
+    if request(host, 443, "/events", ca_file, headers={"Accept": "application/nostr+json"}) != 200:
+        raise RuntimeError("authenticated Wok relay information is unavailable")
+    if request(host, 443, "/healthz", ca_file) != 200:
+        raise RuntimeError("Wildbloom health is unavailable")
+    if request(host, 443, "/" + "0" * 64, ca_file) != 404:
+        raise RuntimeError("an unknown blob was not refused")
     if request(host, 8443, "/", ca_file) != 200:
             raise RuntimeError("private owner UI did not answer")
     context = ssl.create_default_context(cafile=str(ca_file))
     with socket.create_connection((host, 443), timeout=10) as raw:
         with context.wrap_socket(raw, server_hostname="turn." + host):
             pass
-    print("Verified public API restrictions, private owner UI and trusted TURNS on 443.")
+    print("Verified public API restrictions, Wok relay information, Wildbloom health, private owner UI and trusted TURNS on 443.")
 
 
 def main():

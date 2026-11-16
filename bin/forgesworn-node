@@ -47,6 +47,8 @@ case "${1:-}" in
         fi
         umask 077
         mkdir -p state/tls state/letsencrypt state/certbot-work state/certbot-log
+        python3 "$ROOT/bin/wok-config.py" "$PUBLIC_HOST" "$OWNER_KEYS" > state/wokd.toml
+        chmod 644 state/wokd.toml
         if [ ! -s state/spry-turn-secret ]; then
             openssl rand -hex 32 > state/spry-turn-secret
         fi
@@ -94,8 +96,18 @@ case "${1:-}" in
         $COMPOSE run --rm certbot renew --webroot -w /var/www/certbot --non-interactive
         $COMPOSE restart spry gateway
         ;;
+    backup)
+        need_config
+        . "$ROOT/bin/backup.sh"
+        backup_create
+        ;;
+    restore)
+        need_config
+        . "$ROOT/bin/backup.sh"
+        backup_restore "${2:-}"
+        ;;
     *)
-        echo "Usage: $0 {setup|verify|init|up|down|status|restart|certify|renew}" >&2
+        echo "Usage: $0 {setup|verify|init|up|down|status|restart|certify|renew|backup|restore}" >&2
         exit 2
         ;;
 esac

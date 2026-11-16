@@ -43,6 +43,56 @@ services:
       retries: 10
       start_period: 10s
 
+  wok:
+    image: ${WOK_IMAGE:-localhost/wok-standalone:dev}
+    build:
+      context: ${WOK_SOURCE:-../wok}
+    network_mode: host
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - wok-state:/data
+      - ./state/wokd.toml:/etc/wokd/wokd.toml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5 bash -c 'echo > /dev/tcp/127.0.0.1/7447'"]
+      interval: 15s
+      timeout: 6s
+      retries: 10
+      start_period: 5s
+
+  wildbloom:
+    image: ${WILDBLOOM_IMAGE:-ghcr.io/forgesworn/wildbloom-node:0.3.5-b9a7cf4-2}
+    network_mode: host
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      WILDBLOOM_DATA_DIR: /data
+      WILDBLOOM_ALLOW_PUBKEYS: ${OWNER_KEYS}
+      WILDBLOOM_PUBLIC_URL: https://${PUBLIC_HOST}
+      WILDBLOOM_SERVER_NAME: ${PUBLIC_HOST}
+      WILDBLOOM_STORAGE_PROOFS: "false"
+      WILDBLOOM_MAX_BLOB_BYTES: "268435456"
+      WILDBLOOM_QUOTA_BYTES: "10737418240"
+      WILDBLOOM_DIRECT_HTTPS_MIRRORS: "true"
+    volumes:
+      - wildbloom-state:/data
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5 bash -c 'echo > /dev/tcp/127.0.0.1/3742'"]
+      interval: 15s
+      timeout: 6s
+      retries: 10
+      start_period: 10s
+
   gateway:
     image: nginx:1.29.3-trixie@sha256:2f4e10193b0c4f61472245e9d26cea78e7df7af266c7e7cf5e67353ee2731b51
     network_mode: host
@@ -50,7 +100,7 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=16m,mode=1777
-      - /var/cache/nginx:size=32m
+      - /var/cache/nginx:size=512m
       - /var/run:size=1m
       - /etc/nginx/conf.d:size=1m
     cap_drop: [ALL]
@@ -72,6 +122,10 @@ services:
       - ./state/tls/privkey.pem:/etc/nginx/tls/privkey.pem:ro
     depends_on:
       spry:
+        condition: service_healthy
+      wok:
+        condition: service_healthy
+      wildbloom:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "nginx", "-t"]
@@ -100,6 +154,8 @@ services:
 
 volumes:
   spry-state:
+  wok-state:
+  wildbloom-state:
   certbot-webroot:
 
 secrets:

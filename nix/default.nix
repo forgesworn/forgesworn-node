@@ -1,0 +1,4 @@
+{ ... }:
+{
+  imports = [ ./forgesworn-node.nix ];
+}
