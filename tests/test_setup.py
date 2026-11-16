@@ -72,6 +72,13 @@ class ValidationTest(unittest.TestCase):
             finally:
                 setup.ENV = previous
 
+    def test_nix_bundle_never_copies_the_whole_operator_checkout(self):
+        text = (ROOT / "nix" / "forgesworn-node.nix").read_text()
+        self.assertNotIn("cp -r ${../.}/.", text)
+        self.assertNotIn("environment.etc", text)
+        for name in ("compose.yaml", "bin", "certbot", "gateway", "nix", "tests"):
+            self.assertTrue((ROOT / name).exists(), name)
+
 
 if __name__ == "__main__":
     unittest.main()

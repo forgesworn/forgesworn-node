@@ -145,7 +145,8 @@ services.forgesworn-node = {
 ```
 
 The module enables Docker, applies the public firewall ports and reuses the
-Compose bundle and backup commands. It creates no Nostr secret and accepts no
-ACME terms unless `acceptAcmeTerms = true`. Keep `adminBind` on loopback or a
-VPN address. The module has not been evaluated or exercised on a NixOS host;
-Docker on Linux is the tested deployment path.
+Compose bundle and backup commands. Its Nix store bundle uses an explicit file
+allowlist: local `.git`, `state/` and `backup/` content is never copied. It
+creates no Nostr secret and accepts no ACME terms unless `acceptAcmeTerms = true`.
+Keep `adminBind` on loopback or a VPN address. The module has not been evaluated
+or exercised on a NixOS host; Docker on Linux is the tested deployment path.

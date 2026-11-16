@@ -3,8 +3,13 @@
 let
   cfg = config.services.forgesworn-node;
   bundle = pkgs.runCommand "forgesworn-node-bundle" { } ''
-    mkdir -p $out
-    cp -r ${../.}/. $out/
+    mkdir -p $out/bin $out/certbot $out/gateway $out/nix $out/tests
+    cp ${../.env.example} ${../.gitignore} ${../LICENSE} ${../README.md} ${../compose.yaml} $out/
+    cp -r ${../bin}/. $out/bin/
+    cp -r ${../certbot}/. $out/certbot/
+    cp -r ${../gateway}/. $out/gateway/
+    cp -r ${../nix}/. $out/nix/
+    cp -r ${../tests}/. $out/tests/
   '';
   environmentFile = pkgs.writeText "forgesworn-node.env" ''
     PUBLIC_HOST=${cfg.publicHost}
@@ -119,7 +124,6 @@ in
       { assertion = builtins.match ".*[[:space:]].*" cfg.publicHost == null; message = "publicHost must be a DNS hostname."; }
     ];
 
-    environment.etc."forgesworn-node/.env".text = environmentFile;
     environment.systemPackages = [ pkgs.docker-compose pkgs.openssl pkgs.python3 ];
     virtualisation.docker.enable = true;
 
