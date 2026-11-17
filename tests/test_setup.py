@@ -161,6 +161,11 @@ class ValidationTest(unittest.TestCase):
         self.assertIn('name "turn.$PUBLIC_HOST.crt"', sync)
         self.assertIn("restart spry gateway", sync)
 
+    def test_loopback_owner_ui_can_load_its_module_script(self):
+        for path in (".env.example", "compose.yaml", "nix/forgesworn-node.nix"):
+            text = (ROOT / path).read_text()
+            self.assertIn("https://localhost:8443", text)
+
     def test_unprivileged_containers_can_read_secrets_inside_private_state(self):
         initialise = (ROOT / "bin" / "forgesworn-node").read_text()
         certbot = (ROOT / "certbot" / "deploy-hook.sh").read_text()

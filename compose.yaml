@@ -17,7 +17,7 @@ services:
       SPRY_OWNER_KEYS: ${OWNER_KEYS}
       SPRY_RELAY_IP: ${PUBLIC_IP}
       SPRY_KITHMOOT_URL: ${KITHMOOT_URL:-https://kithmoot.app/j/}
-      SPRY_ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://kithmoot.app,https://kithmoot.forgesworn.dev}
+      SPRY_ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://kithmoot.app,https://kithmoot.forgesworn.dev,https://localhost:8443}
       SPRY_CONTROL_RELAYS: ${CONTROL_RELAYS}
       SPRY_TURN_PORT: ${SPRY_TURN_PORT:-3478}
       SPRY_TLS_PORT: ${SPRY_TLS_PORT:-5349}

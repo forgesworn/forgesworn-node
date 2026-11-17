@@ -80,7 +80,7 @@ in
     };
     allowedOrigins = lib.mkOption {
       type = lib.types.listOf lib.types.str;
-      default = [ "https://kithmoot.app" "https://kithmoot.forgesworn.dev" ];
+      default = [ "https://kithmoot.app" "https://kithmoot.forgesworn.dev" "https://localhost:8443" ];
       description = "HTTPS origins allowed to call the signed Spry API.";
     };
     spryImage = lib.mkOption {
