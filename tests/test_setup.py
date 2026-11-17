@@ -100,6 +100,84 @@ class ValidationTest(unittest.TestCase):
         text = (ROOT / "nix" / "forgesworn-node.nix").read_text()
         self.assertIn("package = pkgs.docker_29;", text)
 
+    def test_shared_proxy_profile_uses_non_conflicting_defaults(self):
+        values = {}
+        setup.configure_proxy(values, True)
+        self.assertEqual(values["SHARED_PROXY"], "true")
+        self.assertEqual(values["NGINX_CONFIG"], "nginx.shared.conf")
+        self.assertEqual(values["HTTP_TEMPLATE"], "http.shared.conf.template")
+        self.assertEqual(values["SPRY_TURN_PORT"], "3479")
+        self.assertEqual(values["SPRY_TLS_PORT"], "5350")
+        self.assertEqual(values["SPRY_RELAY_PORTS"], "49500:49531")
+        self.assertEqual(values["SPRY_TLS_ADVERTISE_DIRECT"], "false")
+        self.assertEqual(values["WILDBLOOM_BIND"], "127.0.0.1:3743")
+        values["SPRY_TURN_PORT"] = "3480"
+        setup.configure_proxy(values, True)
+        self.assertEqual(values["SPRY_TURN_PORT"], "3480")
+        setup.configure_proxy(values, False)
+        self.assertEqual(values["SHARED_PROXY"], "false")
+        self.assertEqual(values["NGINX_CONFIG"], "nginx.conf")
+        self.assertEqual(values["SPRY_TLS_ADVERTISE_DIRECT"], "true")
+
+    def test_shared_proxy_has_only_loopback_http_and_private_admin_listeners(self):
+        main = (ROOT / "gateway" / "nginx.shared.conf").read_text()
+        http = (ROOT / "gateway" / "http.shared.conf.template").read_text()
+        self.assertNotIn("stream {", main)
+        self.assertIn("listen 127.0.0.1:9080;", http)
+        self.assertIn("listen ${ADMIN_BIND}:8443 ssl;", http)
+        for occupied in ("listen 80;", "listen 443;", "listen 9443", "listen 127.0.0.1:9443"):
+            self.assertNotIn(occupied, http)
+        self.assertIn("include /etc/nginx/conf.d/public_routes.conf;", http)
+        proxy = (ROOT / "gateway" / "proxy_params").read_text()
+        self.assertIn("X-Forwarded-For $forgesworn_forwarded_for", proxy)
+        for name in ("nginx.conf", "nginx.shared.conf"):
+            config = (ROOT / "gateway" / name).read_text()
+            self.assertIn("default $proxy_add_x_forwarded_for;", config)
+            self.assertIn("127.0.0.1 $http_x_forwarded_for;", config)
+
+    def test_dedicated_and_shared_gateways_use_the_same_public_allowlist(self):
+        dedicated = (ROOT / "gateway" / "http.conf.template").read_text()
+        shared = (ROOT / "gateway" / "http.shared.conf.template").read_text()
+        routes = (ROOT / "gateway" / "public_routes.conf.template").read_text()
+        for template in (dedicated, shared):
+            self.assertIn("include /etc/nginx/conf.d/public_routes.conf;", template)
+            self.assertNotIn("location = /v1/credentials", template)
+        for path in ("/events", "/upload", "/mirror", "/v1/pairings/claim", "/v1/credentials", "/v1/peers"):
+            self.assertIn(f"location = {path}", routes)
+        self.assertIn('return 404;', routes)
+        self.assertNotIn("/v1/public/credentials", routes)
+        self.assertNotIn("/v1/owner/stats", routes)
+
+    def test_shared_caddy_keeps_turn_tls_on_public_443(self):
+        site = (ROOT / "caddy" / "forgesworn-node.Caddyfile.template").read_text()
+        route = (ROOT / "caddy" / "layer4-turn.route.template").read_text()
+        sync = (ROOT / "caddy" / "sync-certs.sh").read_text()
+        self.assertIn("reverse_proxy 127.0.0.1:9080", site)
+        self.assertIn("turn.${PUBLIC_HOST}", site)
+        self.assertIn("disable_tlsalpn_challenge", site)
+        self.assertIn("tls sni turn.${PUBLIC_HOST}", route)
+        self.assertIn("proxy ${PUBLIC_IP}:${SPRY_TLS_PORT}", route)
+        self.assertIn('name "$PUBLIC_HOST.crt"', sync)
+        self.assertIn('name "turn.$PUBLIC_HOST.crt"', sync)
+        self.assertIn("restart spry gateway", sync)
+
+    def test_unprivileged_containers_can_read_secrets_inside_private_state(self):
+        initialise = (ROOT / "bin" / "forgesworn-node").read_text()
+        certbot = (ROOT / "certbot" / "deploy-hook.sh").read_text()
+        caddy = (ROOT / "caddy" / "sync-certs.sh").read_text()
+        self.assertIn("chmod 644 state/spry-turn-secret", initialise)
+        self.assertIn("chmod 644 state/tls/privkey.pem state/tls/turn-privkey.pem", initialise)
+        for script in (certbot, caddy):
+            self.assertNotRegex(script, r"(?:privkey\.pem|spry-turn-secret).*0600")
+            self.assertNotRegex(script, r"0600.*(?:privkey\.pem|spry-turn-secret)")
+
+    def test_certificate_renewal_updates_public_and_turn_pairs(self):
+        hook = (ROOT / "certbot" / "deploy-hook.sh").read_text()
+        compose = (ROOT / "compose.yaml").read_text()
+        for name in ("fullchain.pem", "privkey.pem", "turn-fullchain.pem", "turn-privkey.pem"):
+            self.assertIn(name, hook)
+            self.assertIn(name, compose)
+
 
 if __name__ == "__main__":
     unittest.main()

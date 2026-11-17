@@ -1,0 +1,4 @@
+@forgesworn_node_turn tls sni turn.${PUBLIC_HOST}
+route @forgesworn_node_turn {
+	proxy ${PUBLIC_IP}:${SPRY_TLS_PORT}
+}

@@ -52,6 +52,45 @@ For unattended setup, the same command accepts `--public-host`, `--public-ip`,
 `--owner-key`, `--control-relays`, `--acme-email` and `--non-interactive`.
 Use `./bin/forgesworn-node verify` to repeat the external checks.
 
+## Existing Caddy host
+
+Docker hosts already serving other HTTPS sites can use `--shared-proxy`. This
+keeps Caddy on public 80/443, binds the node's public HTTP gateway to
+`127.0.0.1:9080`, and adds an SNI-only route for `turn.PUBLIC_HOST` to Spry's
+TLS listener. Other Caddy sites stay on their existing TLS path. The shared
+profile defaults to TURN 3479, TLS 5350, relay ports 49500–49531 and Wildbloom
+`127.0.0.1:3743`; change those values if the host already uses them. Open the
+selected TURN UDP/TCP and relay UDP ports in both host and provider firewalls.
+The direct TLS port needs no public rule: Caddy reaches it over the host's own
+public address and external access remains through TLS/443. TLS/443 still
+requires outbound UDP for the peer connections it relays.
+
+Render `caddy/forgesworn-node.Caddyfile.template` with `PUBLIC_HOST` and import
+it from Caddy. Render `caddy/layer4-turn.route.template` with `PUBLIC_HOST`,
+`PUBLIC_IP` and `SPRY_TLS_PORT`, then insert it inside the
+existing `servers :443` layer4 listener wrapper, before Caddy's normal `tls`
+wrapper; this requires Caddy's layer4 plugin. Validate the complete Caddy
+configuration and reload it. Do not replace an existing layer4 configuration or
+its other routes. The public site and `turn.` site each need their own Caddy
+certificate. Spry's direct TLS URL is omitted in this profile because that
+certificate is for the TURN name; the SNI-proxied TLS/443 URL remains. Caddy's
+existing ACME account and terms are reused; shared setup needs no separate ACME
+email and does not run Certbot.
+
+Install `caddy/forgesworn-node-certs.service` and `.timer`, adjust the unit's
+`/opt/forgesworn-node` path if needed, then enable the timer. The service runs
+`caddy/sync-certs.sh` as root to copy both certificate pairs out of Caddy's
+private store and restarts Spry and the gateway only when a certificate changes.
+Run `./bin/forgesworn-node sync-certs` once after Caddy has issued both
+certificates, then `./bin/forgesworn-node verify`. `setup --shared-proxy` also
+runs this certificate step. Certificate replacement closes active TURN
+allocations, as in the dedicated profile.
+
+This is shared-host operation, not machine isolation: the containers share the
+host kernel, network, firewall and capacity with every other tenant. Host
+networking remains in use. Keep the owner UI on loopback or a restricted VPN
+address and review host/provider logging separately.
+
 Then open the owner URL through the private administration path and choose
 **Pair with KithMoot**. Public TCP 443 routes `turn.PUBLIC_HOST` to Spry's TURN
 TLS listener and `PUBLIC_HOST` only to these signed API paths:
@@ -84,9 +123,11 @@ anonymous public-credential path. `SPRY_PUBLIC` remains off.
 ./bin/forgesworn-node down
 ```
 
-Run `renew` from a host timer. It restarts Spry and the gateway after every
-renewal attempt; every restart closes active allocations. A hot certificate
-reload and seamless call migration are not implemented.
+Run `renew` from a host timer in the dedicated profile. It restarts Spry and the
+gateway after every renewal attempt. The shared profile instead uses its Caddy
+certificate timer and restarts only when certificate bytes change. Every restart
+closes active allocations. A hot certificate reload and seamless call migration
+are not implemented.
 
 `state/` contains the TURN root secret, private TLS material and ACME state,
 plus the non-secret generated Wok configuration. Pairing state is in
@@ -94,9 +135,11 @@ plus the non-secret generated Wok configuration. Pairing state is in
 blobs and their metadata in `wildbloom-state`. Keep all three volumes and the
 host directory private and include them in every backup. Compose secrets are
 mounted into containers rather than placed in their inspected environments.
-Spry and Wok run as uid 10001 with read-only roots and no capabilities. Host
-networking reduces network-namespace isolation; the host firewall remains an
-exposure boundary.
+Spry and Wok run as uid 10001 with read-only roots and no capabilities. The
+state directories are mode 0700. Secret and private-key files beneath them are
+mode 0644 so Docker's bind-mounted secrets remain readable by that uid; do not
+broaden the containing directory permissions. Host networking reduces
+network-namespace isolation; the host firewall remains an exposure boundary.
 
 ## Privacy and scope
 

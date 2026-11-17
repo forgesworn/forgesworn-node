@@ -2,7 +2,7 @@ name: forgesworn-node
 
 services:
   spry:
-    image: ${SPRY_IMAGE:-ghcr.io/forgesworn/spry-standalone@sha256:b5f004b0b796c8fc9937cc71e46f5279b3cf2178d25db1be844d6fb6fda864a2}
+    image: ${SPRY_IMAGE:-ghcr.io/forgesworn/spry-standalone@sha256:998e09da50a887319cd8992b0bd70c7ae9a42abbaca350ea1eae9e41c9866430}
     network_mode: host
     restart: unless-stopped
     read_only: true
@@ -19,9 +19,13 @@ services:
       SPRY_KITHMOOT_URL: ${KITHMOOT_URL:-https://kithmoot.app/j/}
       SPRY_ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://kithmoot.app,https://kithmoot.forgesworn.dev}
       SPRY_CONTROL_RELAYS: ${CONTROL_RELAYS}
+      SPRY_TURN_PORT: ${SPRY_TURN_PORT:-3478}
+      SPRY_TLS_PORT: ${SPRY_TLS_PORT:-5349}
+      SPRY_RELAY_PORTS: ${SPRY_RELAY_PORTS:-49160:49191}
       SPRY_TLS_443: "true"
-      SPRY_TLS_CERT_FILE: /run/secrets/fullchain
-      SPRY_TLS_KEY_FILE: /run/secrets/privkey
+      SPRY_TLS_ADVERTISE_DIRECT: ${SPRY_TLS_ADVERTISE_DIRECT:-true}
+      SPRY_TLS_CERT_FILE: /run/secrets/turn_fullchain
+      SPRY_TLS_KEY_FILE: /run/secrets/turn_privkey
       SPRY_LOCAL_TEST: ${SPRY_LOCAL_TEST:-false}
       SPRY_MAX_ALLOCATIONS: ${MAX_ALLOCATIONS:-32}
       SPRY_MAX_ALLOCATIONS_PER_USER: ${MAX_ALLOCATIONS_PER_USER:-8}
@@ -32,8 +36,8 @@ services:
       - spry-state:/data
     secrets:
       - spry_turn_secret
-      - fullchain
-      - privkey
+      - turn_fullchain
+      - turn_privkey
     healthcheck:
       test: ["CMD", "curl", "-fsS", "--max-time", "5", "http://127.0.0.1:3744/v1/status"]
       interval: 15s
@@ -73,6 +77,7 @@ services:
       - no-new-privileges:true
     environment:
       WILDBLOOM_DATA_DIR: /data
+      WILDBLOOM_BIND: ${WILDBLOOM_BIND:-127.0.0.1:3742}
       WILDBLOOM_ALLOW_PUBKEYS: ${OWNER_KEYS}
       WILDBLOOM_PUBLIC_URL: https://${PUBLIC_HOST}
       WILDBLOOM_SERVER_NAME: ${PUBLIC_HOST}
@@ -83,7 +88,7 @@ services:
     volumes:
       - wildbloom-state:/data
     healthcheck:
-      test: ["CMD-SHELL", "timeout 5 bash -c 'echo > /dev/tcp/127.0.0.1/3742'"]
+      test: ["CMD-SHELL", "timeout 5 bash -c 'IFS=: read -r host port <<< \"$$WILDBLOOM_BIND\"; echo > /dev/tcp/$$host/$$port'"]
       interval: 15s
       timeout: 6s
       retries: 10
@@ -107,11 +112,13 @@ services:
       PUBLIC_HOST: ${PUBLIC_HOST}
       ADMIN_HOST: ${ADMIN_HOST}
       ADMIN_BIND: ${ADMIN_BIND:-127.0.0.1}
-      NGINX_ENVSUBST_FILTER: "^(PUBLIC_HOST|ADMIN_HOST|ADMIN_BIND)$"
+      WILDBLOOM_UPSTREAM: ${WILDBLOOM_BIND:-127.0.0.1:3742}
+      NGINX_ENVSUBST_FILTER: "^(PUBLIC_HOST|ADMIN_HOST|ADMIN_BIND|WILDBLOOM_UPSTREAM)$"
     volumes:
-      - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./gateway/${NGINX_CONFIG:-nginx.conf}:/etc/nginx/nginx.conf:ro
       - ./gateway/stream.conf.template:/etc/nginx/templates/stream.conf.template:ro
-      - ./gateway/http.conf.template:/etc/nginx/templates/http.conf.template:ro
+      - ./gateway/${HTTP_TEMPLATE:-http.conf.template}:/etc/nginx/templates/http.conf.template:ro
+      - ./gateway/public_routes.conf.template:/etc/nginx/templates/public_routes.conf.template:ro
       - ./gateway/proxy_params:/etc/nginx/proxy_params:ro
       - certbot-webroot:/var/www/certbot:ro
       - ./state/tls/fullchain.pem:/etc/nginx/tls/fullchain.pem:ro
@@ -161,3 +168,7 @@ secrets:
     file: ./state/tls/fullchain.pem
   privkey:
     file: ./state/tls/privkey.pem
+  turn_fullchain:
+    file: ./state/tls/turn-fullchain.pem
+  turn_privkey:
+    file: ./state/tls/turn-privkey.pem
