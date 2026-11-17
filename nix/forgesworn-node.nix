@@ -85,7 +85,7 @@ in
     };
     spryImage = lib.mkOption {
       type = lib.types.str;
-      default = "ghcr.io/forgesworn/spry-standalone@sha256:998e09da50a887319cd8992b0bd70c7ae9a42abbaca350ea1eae9e41c9866430";
+      default = "ghcr.io/forgesworn/spry-standalone@sha256:5e51b88000946555d659953803228f996b90c41de50648f2114383a99eff7eab";
       description = "Spry image name.";
     };
     wokImage = lib.mkOption {
