@@ -5,10 +5,10 @@ and Wildbloom encrypted-blob store, without Archipelago. KithMoot remains the
 calling application. No ForgeSworn account, telemetry, public administrator or
 anonymous credential issuer is installed.
 
-Status: deployment candidate, not a published or production-qualified release.
-Spry and Wok images are built locally from reviewed checkouts; pinned published
-versions are a separate release step. Wildbloom uses its reviewed upstream
-image.
+Status: deployment candidate, not a production-qualified release. Spry, Wok and
+Wildbloom default to pinned public GHCR image digests. A live public host,
+cross-network TURN and physical-device acceptance are separate qualification
+steps.
 
 ## Requirements
 
@@ -45,8 +45,7 @@ and VPN firewalls. Clients never need the admin listener. Do not expose it
 publicly.
 
 The advanced `.env` file is written with mode 0600. Normal operators do not need
-to edit allocation limits, origins or image settings. `SPRY_SOURCE` and `WOK_SOURCE` point at checkouts used for local image builds
-and will be replaced by pinned published images before release. Do not use
+to edit allocation limits, origins or image settings. Do not use
 `SPRY_LOCAL_TEST=true` outside generated local fixtures.
 
 For unattended setup, the same command accepts `--public-host`, `--public-ip`,
@@ -139,8 +138,6 @@ services.forgesworn-node = {
   controlRelays = [ "wss://relay.primal.net" ];
   acmeEmail = "operator@example.org";
   acceptAcmeTerms = true;
-  sprySource = /path/to/spry-turn;
-  wokSource = /path/to/wok;
 };
 ```
 
