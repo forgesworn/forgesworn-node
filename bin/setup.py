@@ -167,6 +167,24 @@ def write_env(values):
     temporary.replace(ENV)
 
 
+def configure_proxy(values, shared):
+    values.update(
+        SHARED_PROXY="true" if shared else "false",
+        NGINX_CONFIG="nginx.shared.conf" if shared else "nginx.conf",
+        HTTP_TEMPLATE="http.shared.conf.template" if shared else "http.conf.template",
+        SPRY_TLS_ADVERTISE_DIRECT="false" if shared else "true",
+    )
+    if shared:
+        for key, dedicated, alternative in (
+            ("SPRY_TURN_PORT", "3478", "3479"),
+            ("SPRY_TLS_PORT", "5349", "5350"),
+            ("SPRY_RELAY_PORTS", "49160:49191", "49500:49531"),
+            ("WILDBLOOM_BIND", "127.0.0.1:3742", "127.0.0.1:3743"),
+        ):
+            if values.get(key, dedicated) == dedicated:
+                values[key] = alternative
+
+
 def ask(label, current=""):
     suffix = f" [{current}]" if current else ""
     answer = input(f"{label}{suffix}: ").strip()
@@ -202,9 +220,14 @@ def check_dns(host, address):
             raise RuntimeError(f"{name} resolves to {sorted(addresses) or 'no IPv4 address'}, not {address}")
 
 
-def request(host, port, path, ca_file, method="GET", body=None, headers=None):
+def request(host, port, path, ca_file, method="GET", body=None, headers=None, connect_host=None):
     context = ssl.create_default_context(cafile=str(ca_file))
-    connection = http.client.HTTPSConnection(host, port, timeout=10, context=context)
+    if connect_host:
+        connection = http.client.HTTPConnection(host, port, timeout=10)
+        raw = socket.create_connection((connect_host, port), timeout=10)
+        connection.sock = context.wrap_socket(raw, server_hostname=host)
+    else:
+        connection = http.client.HTTPSConnection(host, port, timeout=10, context=context)
     headers = {"Content-Type": "application/json"} if body is not None else (headers or {})
     connection.request(method, path, body=body, headers=headers)
     response = connection.getresponse()
@@ -230,9 +253,11 @@ def verify(values):
         raise RuntimeError("Wildbloom health is unavailable")
     if request(host, 443, "/" + "0" * 64, ca_file) != 404:
         raise RuntimeError("an unknown blob was not refused")
-    if request(host, 8443, "/", ca_file) != 200:
-            raise RuntimeError("private owner UI did not answer")
-    context = ssl.create_default_context(cafile=str(ca_file))
+    admin_bind = values.get("ADMIN_BIND", "127.0.0.1")
+    if request(host, 8443, "/", ca_file, connect_host=admin_bind) != 200:
+        raise RuntimeError("private owner UI did not answer")
+    turn_ca_file = ROOT / "state" / "tls" / "turn-fullchain.pem"
+    context = ssl.create_default_context(cafile=str(turn_ca_file))
     with socket.create_connection((host, 443), timeout=10) as raw:
         with context.wrap_socket(raw, server_hostname="turn." + host):
             pass
@@ -247,6 +272,7 @@ def main():
     parser.add_argument("--owner-key")
     parser.add_argument("--control-relays")
     parser.add_argument("--acme-email")
+    parser.add_argument("--shared-proxy", action="store_true", help="use an existing Caddy HTTPS and SNI proxy")
     parser.add_argument("--self-signed", action="store_true")
     parser.add_argument("--skip-dns-check", action="store_true")
     parser.add_argument("--skip-verify", action="store_true")
@@ -261,6 +287,7 @@ def main():
     except (RuntimeError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"Setup cannot continue: {error}\n")
     local_test = args.self_signed or current.get("SPRY_LOCAL_TEST") == "true"
+    shared = args.shared_proxy or current.get("SHARED_PROXY") == "true"
     interactive = not args.non_interactive
     host = args.public_host or (ask("Public hostname", current.get("PUBLIC_HOST", "")) if interactive else current.get("PUBLIC_HOST", ""))
     address = args.public_ip or current.get("PUBLIC_IP", "")
@@ -268,13 +295,13 @@ def main():
         address = detect_ip() or ask("Public IPv4 address")
     owner = args.owner_key or (ask("Owner npub or hex public key", current.get("OWNER_KEYS", "")) if interactive else current.get("OWNER_KEYS", ""))
     relays = args.control_relays or (ask("Your Nostr relays, comma-separated", current.get("CONTROL_RELAYS", "")) if interactive else current.get("CONTROL_RELAYS", ""))
-    contact = args.acme_email or (ask("Email for certificate notices", current.get("ACME_EMAIL", "")) if interactive else current.get("ACME_EMAIL", ""))
+    contact = args.acme_email or ("" if shared else (ask("Email for certificate notices", current.get("ACME_EMAIL", "")) if interactive else current.get("ACME_EMAIL", "")))
     try:
         host = hostname(host)
         address = public_ip(address, local_test)
         owner = owner_keys(owner)
         relays = control_relays(relays)
-        contact = email(contact)
+        contact = "" if shared and not contact else email(contact)
         if not args.skip_dns_check and not local_test:
             check_dns(host, address)
     except (ValueError, RuntimeError) as error:
@@ -283,6 +310,7 @@ def main():
                    OWNER_KEYS=owner, CONTROL_RELAYS=relays, ACME_EMAIL=contact,
                    ADMIN_BIND=current.get("ADMIN_BIND", "127.0.0.1"),
                    SPRY_LOCAL_TEST="true" if local_test else "false")
+    configure_proxy(current, shared)
     write_env(current)
     try:
         run("init")

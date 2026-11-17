@@ -1,0 +1,9 @@
+[Unit]
+Description=Publish standalone-node certificates from Caddy
+After=caddy.service docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/forgesworn-node/caddy/sync-certs.sh
+StandardOutput=journal
+StandardError=journal

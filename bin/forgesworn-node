@@ -14,9 +14,17 @@ need_config() {
 
 need_state() {
     need_config
-    if [ ! -s state/spry-turn-secret ] || [ ! -s state/tls/fullchain.pem ] || [ ! -s state/tls/privkey.pem ]; then
+    if [ ! -s state/spry-turn-secret ] || [ ! -s state/tls/fullchain.pem ] || [ ! -s state/tls/privkey.pem ] || [ ! -s state/tls/turn-fullchain.pem ] || [ ! -s state/tls/turn-privkey.pem ]; then
         echo "Run $0 init first." >&2
         exit 1
+    fi
+}
+
+sync_certs() {
+    if [ "$(id -u)" = 0 ]; then
+        "$ROOT/caddy/sync-certs.sh"
+    else
+        sudo "$ROOT/caddy/sync-certs.sh"
     fi
 }
 
@@ -62,6 +70,12 @@ case "${1:-}" in
             chmod 644 state/tls/fullchain.pem
             echo "Created a two-day bootstrap certificate. Run $0 certify before inviting users."
         fi
+        if [ ! -s state/tls/turn-fullchain.pem ]; then
+            cp state/tls/fullchain.pem state/tls/turn-fullchain.pem
+            cp state/tls/privkey.pem state/tls/turn-privkey.pem
+            chmod 644 state/tls/turn-fullchain.pem
+            chmod 600 state/tls/turn-privkey.pem
+        fi
         $COMPOSE config --quiet
         echo "Initialised private state in $ROOT/state."
         ;;
@@ -81,20 +95,35 @@ case "${1:-}" in
         need_state
         $COMPOSE restart spry gateway
         ;;
+    sync-certs)
+        need_state
+        sync_certs
+        ;;
     certify)
         need_state
         set -a
         . ./.env
         set +a
-        $COMPOSE run --rm certbot certonly --webroot -w /var/www/certbot \
-            -d "$PUBLIC_HOST" -d "turn.$PUBLIC_HOST" -d "$ADMIN_HOST" \
-            --agree-tos --email "$ACME_EMAIL" --non-interactive
-        $COMPOSE restart spry gateway
+        if [ "${SHARED_PROXY:-false}" = "true" ]; then
+            sync_certs
+        else
+            $COMPOSE run --rm certbot certonly --webroot -w /var/www/certbot \
+                -d "$PUBLIC_HOST" -d "turn.$PUBLIC_HOST" -d "$ADMIN_HOST" \
+                --agree-tos --email "$ACME_EMAIL" --non-interactive
+            $COMPOSE restart spry gateway
+        fi
         ;;
     renew)
         need_state
-        $COMPOSE run --rm certbot renew --webroot -w /var/www/certbot --non-interactive
-        $COMPOSE restart spry gateway
+        set -a
+        . ./.env
+        set +a
+        if [ "${SHARED_PROXY:-false}" = "true" ]; then
+            sync_certs
+        else
+            $COMPOSE run --rm certbot renew --webroot -w /var/www/certbot --non-interactive
+            $COMPOSE restart spry gateway
+        fi
         ;;
     backup)
         need_config
@@ -107,7 +136,7 @@ case "${1:-}" in
         backup_restore "${2:-}"
         ;;
     *)
-        echo "Usage: $0 {setup|verify|init|up|down|status|restart|certify|renew|backup|restore}" >&2
+        echo "Usage: $0 {setup|verify|init|up|down|status|restart|certify|sync-certs|renew|backup|restore}" >&2
         exit 2
         ;;
 esac
