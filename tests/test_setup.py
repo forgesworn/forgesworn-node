@@ -161,6 +161,16 @@ class ValidationTest(unittest.TestCase):
         self.assertIn('name "turn.$PUBLIC_HOST.crt"', sync)
         self.assertIn("restart spry gateway", sync)
 
+    def test_unprivileged_containers_can_read_secrets_inside_private_state(self):
+        initialise = (ROOT / "bin" / "forgesworn-node").read_text()
+        certbot = (ROOT / "certbot" / "deploy-hook.sh").read_text()
+        caddy = (ROOT / "caddy" / "sync-certs.sh").read_text()
+        self.assertIn("chmod 644 state/spry-turn-secret", initialise)
+        self.assertIn("chmod 644 state/tls/privkey.pem state/tls/turn-privkey.pem", initialise)
+        for script in (certbot, caddy):
+            self.assertNotRegex(script, r"(?:privkey\.pem|spry-turn-secret).*0600")
+            self.assertNotRegex(script, r"0600.*(?:privkey\.pem|spry-turn-secret)")
+
     def test_certificate_renewal_updates_public_and_turn_pairs(self):
         hook = (ROOT / "certbot" / "deploy-hook.sh").read_text()
         compose = (ROOT / "compose.yaml").read_text()

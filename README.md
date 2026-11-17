@@ -135,9 +135,11 @@ plus the non-secret generated Wok configuration. Pairing state is in
 blobs and their metadata in `wildbloom-state`. Keep all three volumes and the
 host directory private and include them in every backup. Compose secrets are
 mounted into containers rather than placed in their inspected environments.
-Spry and Wok run as uid 10001 with read-only roots and no capabilities. Host
-networking reduces network-namespace isolation; the host firewall remains an
-exposure boundary.
+Spry and Wok run as uid 10001 with read-only roots and no capabilities. The
+state directories are mode 0700. Secret and private-key files beneath them are
+mode 0644 so Docker's bind-mounted secrets remain readable by that uid; do not
+broaden the containing directory permissions. Host networking reduces
+network-namespace isolation; the host firewall remains an exposure boundary.
 
 ## Privacy and scope
 

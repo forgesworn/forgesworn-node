@@ -60,13 +60,14 @@ case "${1:-}" in
         if [ ! -s state/spry-turn-secret ]; then
             openssl rand -hex 32 > state/spry-turn-secret
         fi
+        chmod 644 state/spry-turn-secret
         if [ ! -s state/tls/fullchain.pem ]; then
             openssl req -x509 -newkey rsa:3072 -nodes -days 2 \
                 -keyout state/tls/privkey.pem \
                 -out state/tls/fullchain.pem \
                 -subj "/CN=$PUBLIC_HOST" \
                 -addext "subjectAltName=DNS:$PUBLIC_HOST,DNS:turn.$PUBLIC_HOST,DNS:$ADMIN_HOST"
-            chmod 600 state/tls/privkey.pem
+            chmod 644 state/tls/privkey.pem
             chmod 644 state/tls/fullchain.pem
             echo "Created a two-day bootstrap certificate. Run $0 certify before inviting users."
         fi
@@ -74,8 +75,9 @@ case "${1:-}" in
             cp state/tls/fullchain.pem state/tls/turn-fullchain.pem
             cp state/tls/privkey.pem state/tls/turn-privkey.pem
             chmod 644 state/tls/turn-fullchain.pem
-            chmod 600 state/tls/turn-privkey.pem
+            chmod 644 state/tls/turn-privkey.pem
         fi
+        chmod 644 state/tls/privkey.pem state/tls/turn-privkey.pem
         $COMPOSE config --quiet
         echo "Initialised private state in $ROOT/state."
         ;;

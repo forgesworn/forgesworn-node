@@ -31,9 +31,9 @@ sync_one() {
 }
 
 sync_one "$PUBLIC_CERT" "$TLS/fullchain.pem" 0644
-sync_one "${PUBLIC_CERT%.crt}.key" "$TLS/privkey.pem" 0600
+sync_one "${PUBLIC_CERT%.crt}.key" "$TLS/privkey.pem" 0644
 sync_one "$TURN_CERT" "$TLS/turn-fullchain.pem" 0644
-sync_one "${TURN_CERT%.crt}.key" "$TLS/turn-privkey.pem" 0600
+sync_one "${TURN_CERT%.crt}.key" "$TLS/turn-privkey.pem" 0644
 
 if [[ "$changed" -eq 1 ]]; then
     docker compose --env-file "$ROOT/.env" -f "$ROOT/compose.yaml" restart spry gateway
