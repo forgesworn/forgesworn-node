@@ -25,9 +25,7 @@ let
     KITHMOOT_URL=${cfg.kithmootUrl}
     ALLOWED_ORIGINS=${lib.concatStringsSep "," cfg.allowedOrigins}
     ACME_EMAIL=${cfg.acmeEmail}
-    SPRY_SOURCE=${cfg.sprySource}
     SPRY_IMAGE=${cfg.spryImage}
-    WOK_SOURCE=${cfg.wokSource}
     WOK_IMAGE=${cfg.wokImage}
     WILDBLOOM_IMAGE=${cfg.wildbloomImage}
     SPRY_LOCAL_TEST=false
@@ -85,27 +83,19 @@ in
       default = [ "https://kithmoot.app" "https://kithmoot.forgesworn.dev" ];
       description = "HTTPS origins allowed to call the signed Spry API.";
     };
-    sprySource = lib.mkOption {
-      type = lib.types.path;
-      description = "Spry checkout used for the local container build.";
-    };
     spryImage = lib.mkOption {
       type = lib.types.str;
-      default = "localhost/spry-standalone:dev";
+      default = "ghcr.io/forgesworn/spry-standalone@sha256:b5f004b0b796c8fc9937cc71e46f5279b3cf2178d25db1be844d6fb6fda864a2";
       description = "Spry image name.";
-    };
-    wokSource = lib.mkOption {
-      type = lib.types.path;
-      description = "Wok checkout used for the local container build.";
     };
     wokImage = lib.mkOption {
       type = lib.types.str;
-      default = "localhost/wok-standalone:dev";
+      default = "ghcr.io/forgesworn/wok@sha256:ba6ac8f8999f963c6d9b85e300e66da129e3a9903f1bbb8c932dbbfb5574eb48";
       description = "Wok image name.";
     };
     wildbloomImage = lib.mkOption {
       type = lib.types.str;
-      default = "ghcr.io/forgesworn/wildbloom-node:0.3.5-b9a7cf4-2";
+      default = "ghcr.io/forgesworn/wildbloom-node@sha256:d4c85f69e37d4508dfbf13cc905cd7310a84e720aa707f6d06aec152851d701b";
       description = "Reviewed Wildbloom image.";
     };
     stateDir = lib.mkOption {

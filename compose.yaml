@@ -2,9 +2,7 @@ name: forgesworn-node
 
 services:
   spry:
-    image: ${SPRY_IMAGE:-localhost/spry-standalone:dev}
-    build:
-      context: ${SPRY_SOURCE:-../spry-turn}
+    image: ${SPRY_IMAGE:-ghcr.io/forgesworn/spry-standalone@sha256:b5f004b0b796c8fc9937cc71e46f5279b3cf2178d25db1be844d6fb6fda864a2}
     network_mode: host
     restart: unless-stopped
     read_only: true
@@ -44,9 +42,7 @@ services:
       start_period: 10s
 
   wok:
-    image: ${WOK_IMAGE:-localhost/wok-standalone:dev}
-    build:
-      context: ${WOK_SOURCE:-../wok}
+    image: ${WOK_IMAGE:-ghcr.io/forgesworn/wok@sha256:ba6ac8f8999f963c6d9b85e300e66da129e3a9903f1bbb8c932dbbfb5574eb48}
     network_mode: host
     restart: unless-stopped
     read_only: true
@@ -66,7 +62,7 @@ services:
       start_period: 5s
 
   wildbloom:
-    image: ${WILDBLOOM_IMAGE:-ghcr.io/forgesworn/wildbloom-node:0.3.5-b9a7cf4-2}
+    image: ${WILDBLOOM_IMAGE:-ghcr.io/forgesworn/wildbloom-node@sha256:d4c85f69e37d4508dfbf13cc905cd7310a84e720aa707f6d06aec152851d701b}
     network_mode: host
     restart: unless-stopped
     read_only: true

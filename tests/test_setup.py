@@ -1,5 +1,6 @@
 import importlib.util
 from pathlib import Path
+import re
 import tempfile
 import subprocess
 import sys
@@ -71,6 +72,20 @@ class ValidationTest(unittest.TestCase):
                 self.assertNotIn("TURN_SECRET", values)
             finally:
                 setup.ENV = previous
+
+    def test_container_defaults_use_the_same_immutable_public_images(self):
+        compose = (ROOT / "compose.yaml").read_text()
+        environment = (ROOT / ".env.example").read_text()
+        nix = (ROOT / "nix" / "forgesworn-node.nix").read_text()
+        images = dict(re.findall(r"\$\{(SPRY_IMAGE|WOK_IMAGE|WILDBLOOM_IMAGE):-([^}]+)\}", compose))
+        self.assertEqual(set(images), {"SPRY_IMAGE", "WOK_IMAGE", "WILDBLOOM_IMAGE"})
+        for name, reference in images.items():
+            self.assertRegex(reference, r"^ghcr\.io/forgesworn/(?:spry-standalone|wok|wildbloom-node)@sha256:[0-9a-f]{64}$")
+            self.assertIn(f"{name}={reference}", environment)
+            self.assertIn(f'default = "{reference}";', nix)
+        self.assertNotIn("build:", compose)
+        for obsolete in ("SPRY_SOURCE", "WOK_SOURCE", "sprySource", "wokSource"):
+            self.assertNotIn(obsolete, compose + environment + nix)
 
     def test_nix_bundle_never_copies_the_whole_operator_checkout(self):
         text = (ROOT / "nix" / "forgesworn-node.nix").read_text()
