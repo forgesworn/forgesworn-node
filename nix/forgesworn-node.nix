@@ -4,7 +4,11 @@ let
   cfg = config.services.forgesworn-node;
   bundle = pkgs.runCommand "forgesworn-node-bundle" { } ''
     mkdir -p $out/bin $out/certbot $out/gateway $out/nix $out/tests
-    cp ${../.env.example} ${../.gitignore} ${../LICENSE} ${../README.md} ${../compose.yaml} $out/
+    cp ${../.env.example} $out/.env.example
+    cp ${../.gitignore} $out/.gitignore
+    cp ${../LICENSE} $out/LICENSE
+    cp ${../README.md} $out/README.md
+    cp ${../compose.yaml} $out/compose.yaml
     cp -r ${../bin}/. $out/bin/
     cp -r ${../certbot}/. $out/certbot/
     cp -r ${../gateway}/. $out/gateway/
@@ -125,7 +129,10 @@ in
     ];
 
     environment.systemPackages = [ pkgs.docker-compose pkgs.openssl pkgs.python3 ];
-    virtualisation.docker.enable = true;
+    virtualisation.docker = {
+      enable = true;
+      package = pkgs.docker_29;
+    };
 
     networking.firewall = {
       allowedTCPPorts = [ 80 443 3478 5349 ];

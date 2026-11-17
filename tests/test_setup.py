@@ -76,8 +76,14 @@ class ValidationTest(unittest.TestCase):
         text = (ROOT / "nix" / "forgesworn-node.nix").read_text()
         self.assertNotIn("cp -r ${../.}/.", text)
         self.assertNotIn("environment.etc", text)
+        for name in (".env.example", ".gitignore", "LICENSE", "README.md", "compose.yaml"):
+            self.assertIn(f"cp ${{../{name}}} $out/{name}", text)
         for name in ("compose.yaml", "bin", "certbot", "gateway", "nix", "tests"):
             self.assertTrue((ROOT / name).exists(), name)
+
+    def test_nix_selects_a_maintained_docker_package(self):
+        text = (ROOT / "nix" / "forgesworn-node.nix").read_text()
+        self.assertIn("package = pkgs.docker_29;", text)
 
 
 if __name__ == "__main__":

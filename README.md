@@ -148,5 +148,9 @@ The module enables Docker, applies the public firewall ports and reuses the
 Compose bundle and backup commands. Its Nix store bundle uses an explicit file
 allowlist: local `.git`, `state/` and `backup/` content is never copied. It
 creates no Nostr secret and accepts no ACME terms unless `acceptAcmeTerms = true`.
-Keep `adminBind` on loopback or a VPN address. The module has not been evaluated
-or exercised on a NixOS host; Docker on Linux is the tested deployment path.
+Keep `adminBind` on loopback or a VPN address. The module selects Docker 29:
+NixOS 25.11's default Docker 28 package is now refused by Nixpkgs as insecure.
+A complete NixOS 25.11 machine configuration, its assertions, firewall and
+service commands evaluate successfully. The generated ARM64 bundle builds with
+the required filenames and no operator state. The module has not been exercised
+on a NixOS host. Docker on Linux is the tested deployment path.
