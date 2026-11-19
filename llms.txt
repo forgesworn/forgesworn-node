@@ -1,0 +1,16 @@
+# ForgeSworn standalone node
+
+> Operator-owned call, relay and file services for standalone KithMoot rooms.
+
+## Documentation
+
+- [Operator setup](https://github.com/forgesworn/forgesworn-node/blob/main/README.md): Deploy the Spry, Wok and Wildbloom services and review the operating boundaries.
+
+## ForgeSworn ecosystem
+
+- [ForgeSworn library guide](https://forgesworn.dev/llms.txt): Find related libraries, tools and integration guides by task and runtime.
+- [ForgeSworn on GitHub](https://github.com/forgesworn): Browse the organisation’s public repositories.
+- [Project source](https://github.com/forgesworn/forgesworn-node): Canonical source repository, documentation and release information.
+- [spry-turn](https://github.com/forgesworn/spry-turn): Native STUN/TURN media relay.
+- [wok](https://github.com/forgesworn/wok): Nostr relay store, WebSocket handling and daemon.
+- [wildbloom-node](https://github.com/forgesworn/wildbloom-node): Self-hosted Blossom storage server.
