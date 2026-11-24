@@ -17,6 +17,19 @@ def bech32_npub(key):
     return setup.bech32_encode("npub", bytes.fromhex(key))
 
 
+class BundleTest(unittest.TestCase):
+    def test_every_service_caps_its_container_log(self):
+        text = (ROOT / "compose.yaml").read_text()
+        self.assertIn(
+            'x-logging: &logging\n  driver: local\n  options:\n'
+            '    max-size: "1m"\n    max-file: "1"\n    compress: "false"\n', text)
+        services = text.split("\nservices:\n", 1)[1].split("\nvolumes:\n", 1)[0]
+        blocks = re.split(r"(?m)^  (?=[a-z][a-z0-9-]*:$)", services)[1:]
+        self.assertGreaterEqual(len(blocks), 5)
+        for block in blocks:
+            self.assertIn("\n    logging: *logging\n", block, block.splitlines()[0])
+
+
 class ValidationTest(unittest.TestCase):
     def test_owner_accepts_hex_and_rejects_unknown_keys(self):
         key = "ab" * 32
