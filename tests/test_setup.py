@@ -29,6 +29,12 @@ class BundleTest(unittest.TestCase):
         for block in blocks:
             self.assertIn("\n    logging: *logging\n", block, block.splitlines()[0])
 
+    def test_the_gateway_logs_only_what_stops_it_starting(self):
+        for name in ("nginx.conf", "nginx.shared.conf"):
+            text = (ROOT / "gateway" / name).read_text()
+            self.assertEqual(re.findall(r"(?m)^error_log .*$", text), ["error_log /dev/stderr emerg;"])
+            self.assertIn("access_log off;", text)
+
 
 class ValidationTest(unittest.TestCase):
     def test_owner_accepts_hex_and_rejects_unknown_keys(self):

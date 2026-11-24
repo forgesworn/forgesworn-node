@@ -151,10 +151,15 @@ its relay grant does not replace KithMoot's invitation or room-key admission.
 Wildbloom stores ciphertext, blob hashes and signing keys; anyone with a hash
 can request the ciphertext. None of these services receives room media keys.
 
-Nginx access logs are disabled. Each container's output is kept in one file of
-at most 1 MiB, which `compose.yaml` sets whatever the host's Docker default is,
-and it goes when the container is removed. The cap limits how much is kept;
-this bundle makes no claim about what Spry, Wok and Wildbloom write there.
+Nginx access logs are disabled, and the gateway logs only what stops it
+starting. Its other error lines name the connecting address: to see them while
+debugging, set `error_log` in `gateway/nginx.conf` (`nginx.shared.conf` in the
+shared profile) to `warn` and run `./bin/forgesworn-node restart`.
+
+Each container's output is kept in one file of at most 1 MiB, which
+`compose.yaml` sets whatever the host's Docker default is, and it goes when the
+container is removed. The cap limits how much is kept; this bundle makes no
+claim about what Spry, Wok and Wildbloom write there.
 Host, journald, crash, VPN and provider logging require separate inspection.
 This is metadata minimisation, not a claim of no metadata or no applicable law.
 
