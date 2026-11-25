@@ -21,6 +21,7 @@ steps.
   reach the host. Outbound UDP is still required when clients use TCP or TLS.
 - An owner Nostr public key and the Nostr relays the owner deliberately uses.
 - OpenSSL for the local bootstrap certificate.
+- Python 3, which the `setup`, `verify` and `init` commands run on the host.
 
 ## Set up
 
@@ -149,9 +150,18 @@ Wok stores public keys, signed grants, event metadata and whatever clients send;
 its relay grant does not replace KithMoot's invitation or room-key admission.
 Wildbloom stores ciphertext, blob hashes and signing keys; anyone with a hash
 can request the ciphertext. None of these services receives room media keys.
-Nginx access logs are disabled, but host, journald, crash, VPN and provider
-logging require separate inspection. This is metadata minimisation, not a claim
-of no metadata or no applicable law.
+
+Nginx access logs are disabled, and the gateway logs only what stops it
+starting. Its other error lines name the connecting address: to see them while
+debugging, set `error_log` in `gateway/nginx.conf` (`nginx.shared.conf` in the
+shared profile) to `warn` and run `./bin/forgesworn-node restart`.
+
+Each container's output is kept in one file of at most 1 MiB, which
+`compose.yaml` sets whatever the host's Docker default is, and it goes when the
+container is removed. The cap limits how much is kept; this bundle makes no
+claim about what Spry, Wok and Wildbloom write there.
+Host, journald, crash, VPN and provider logging require separate inspection.
+This is metadata minimisation, not a claim of no metadata or no applicable law.
 
 ## Back up and restore
 
